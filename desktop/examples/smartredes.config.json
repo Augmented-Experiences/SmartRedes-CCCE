@@ -1,0 +1,22 @@
+{
+  "$comment": "Ejemplo de config para SmartRedes. Copiar como desktop/smartsuite.config.json en ese repo.",
+  "publisher": "Cámara Colombiana de Comercio Electrónico (CCCE)",
+  "productName": "SmartRedes",
+  "identifier": "co.org.ccce.smartredes",
+  "version": "1.0.0",
+  "dataDirName": "SmartRedes",
+  "accent": "#F4C10E",
+  "window": { "title": "SmartRedes", "width": 1280, "height": 840, "minWidth": 960, "minHeight": 640 },
+  "shortDescription": "Asistente de marca/redes con IA local (CCCE)",
+  "longDescription": "SmartRedes — asistente de marca y redes con IA local para PYMEs, de la Cámara Colombiana de Comercio Electrónico (CCCE).",
+  "splashLogo": "../app/logo-ccce.png",
+  "ollama": {
+    "tiers": [
+      { "maxRamGb": 7, "id": "liviano", "label": "Liviano", "model": "llama3.2:1b", "extraModels": [] },
+      { "maxRamGb": 13, "id": "estandar", "label": "Estándar", "model": "llama3.2:3b", "extraModels": [] },
+      { "maxRamGb": 24, "id": "completo", "label": "Completo", "model": "llama3.2:3b", "extraModels": [] },
+      { "maxRamGb": 0, "id": "maximo", "label": "Máximo", "model": "llama3.1:8b", "extraModels": [] }
+    ]
+  },
+  "access": { "blockBelowGb": 7, "warnBelowGb": 13 }
+}

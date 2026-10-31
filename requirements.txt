@@ -1,0 +1,39 @@
+# ============================================================
+# SmartRedes — Dependencias Python
+# ============================================================
+# Instalación automática via install.json de Pinokio.
+# Para instalar manualmente:
+#   python -m venv venv
+#   venv/bin/pip install -r requirements.txt          (macOS/Linux)
+#   venv\Scripts\pip install -r requirements.txt      (Windows)
+# ============================================================
+
+# --- Servidor web ---
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9
+aiofiles>=23.2.0
+
+# --- HTTP y parsing ---
+requests>=2.31.0
+httpx>=0.27.0
+beautifulsoup4>=4.12.0
+pydantic>=2.5.0
+
+# --- Imágenes ---
+Pillow>=10.0.0
+
+# --- Scraper con JS (SPAs, React, Taskade, etc.) ---
+# El browser Chromium se instala por separado en install.json:
+#   playwright install chromium
+playwright>=1.40.0
+
+# --- Motor de imágenes con IA (opcional, se instala por separado) ---
+# torch NO se incluye aquí porque el índice depende del hardware.
+# Se instala en install.json con el índice correcto para CPU.
+# Si tienes GPU NVIDIA, instala manualmente:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu121
+diffusers>=0.30.0
+transformers>=4.40.0
+accelerate>=0.30.0
+safetensors>=0.4.0

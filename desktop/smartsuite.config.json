@@ -1,0 +1,61 @@
+{
+  "$comment": "Configuración por-herramienta del SmartSuite (CCCE). Cambia estos valores y ejecuta 'node scripts/configure.mjs' (o 'npm run build', que lo ejecuta antes de compilar).",
+  "publisher": "Cámara Colombiana de Comercio Electrónico (CCCE)",
+  "productName": "SmartRedes",
+  "identifier": "co.org.ccce.smartredes",
+  "version": "1.0.0",
+  "dataDirName": "SmartRedes",
+  "accent": "#F4C10E",
+  "category": "Business",
+  "window": {
+    "title": "SmartRedes",
+    "width": 1280,
+    "height": 840,
+    "minWidth": 960,
+    "minHeight": 640
+  },
+  "shortDescription": "Asistente de marca y redes con IA local (CCCE)",
+  "longDescription": "SmartRedes — asistente de marca y campañas digitales con IA local para PYMEs, de la Cámara Colombiana de Comercio Electrónico (CCCE).",
+  "splashSubtitle": "Preparando tu asistente de marca y redes con IA local...",
+  "splashLogo": "../app/logo-ccce.png",
+  "ollama": {
+    "tiers": [
+      {
+        "maxRamGb": 7,
+        "id": "liviano",
+        "label": "Liviano",
+        "model": "llama3.2:1b",
+        "extraModels": []
+      },
+      {
+        "maxRamGb": 13,
+        "id": "estandar",
+        "label": "Estándar",
+        "model": "llama3.2:3b",
+        "extraModels": []
+      },
+      {
+        "maxRamGb": 24,
+        "id": "completo",
+        "label": "Completo",
+        "model": "llama3.2:3b",
+        "extraModels": []
+      },
+      {
+        "maxRamGb": 0,
+        "id": "maximo",
+        "label": "Máximo",
+        "model": "llama3.1:8b",
+        "extraModels": []
+      }
+    ]
+  },
+  "access": {
+    "blockBelowGb": 7,
+    "warnBelowGb": 13
+  },
+  "pyinstaller": {
+    "$comment": "El motor de imágenes (diffusers/transformers/torch) y el scraper con navegador (playwright) son opcionales y se excluyen del instalador para mantenerlo liviano.",
+    "excludes": ["torch", "torchvision", "torchaudio", "diffusers", "transformers", "accelerate", "safetensors", "tokenizers", "huggingface_hub", "playwright", "scipy"]
+  }
+}

@@ -1,0 +1,188 @@
+{
+  "run": [
+
+    {
+      "method": "log",
+      "params": {
+        "html": "<div style='font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;padding:24px 20px 0'><div style='display:flex;align-items:center;gap:14px;margin-bottom:16px'><div style='width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#173A7A,#F4C10E);display:flex;align-items:center;justify-content:center;font-size:24px;color:#fff;flex-shrink:0'>S</div><div><h2 style='margin:0;font-size:20px;color:#e2e8f0'>SmartRedes</h2><p style='margin:4px 0 0;color:#94a3b8;font-size:13px'>Plataforma de ADN de marca y campa&ntilde;as digitales con IA local</p></div></div><div style='background:#1e293b;border-radius:8px;padding:14px 16px;margin-bottom:8px'><div style='display:flex;justify-content:space-between;margin-bottom:8px'><span style='color:#94a3b8;font-size:12px'>Plataforma</span><span style='color:#e2e8f0;font-size:12px;font-weight:600'>{{platform}}</span></div><div style='display:flex;justify-content:space-between;margin-bottom:8px'><span style='color:#94a3b8;font-size:12px'>RAM disponible</span><span style='color:#e2e8f0;font-size:12px;font-weight:600'>{{ram}} GB</span></div><div style='display:flex;justify-content:space-between'><span style='color:#94a3b8;font-size:12px'>Modelo de IA</span><span style='color:#3DAE2B;font-size:12px;font-weight:600'>{{ram < 6 ? 'llama3.2:1b (ligero)' : ram < 12 ? 'llama3.2:3b (est&aacute;ndar)' : 'llama3.1:8b (avanzado)'}}</span></div></div><p style='color:#64748b;font-size:11px;margin:12px 0 0;text-align:center'>La instalaci&oacute;n puede tomar entre 5 y 15 minutos seg&uacute;n tu conexi&oacute;n a internet.</p></div>"
+      }
+    },
+
+
+
+    {
+      "method": "log",
+      "params": {
+        "html": "<div style='font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;padding:16px 20px 0'><div style='background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:16px 18px'><div style='display:flex;align-items:center;gap:10px;margin-bottom:12px'><div style='width:28px;height:28px;border-radius:50%;background:#3b82f6;display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;font-weight:700;flex-shrink:0'>1</div><div><span style='color:#e2e8f0;font-size:14px;font-weight:600'>Verificando Ollama</span><span style='color:#64748b;font-size:12px;margin-left:8px'>Motor de IA local</span></div></div><div style='background:#1e293b;border-radius:6px;height:4px;overflow:hidden'><div style='width:20%;height:100%;background:linear-gradient(90deg,#3b82f6,#60a5fa);border-radius:6px'></div></div><p style='color:#94a3b8;font-size:12px;margin:10px 0 0'>Buscando Ollama en el sistema...</p></div></div>"
+      }
+    },
+    {
+      "when": "{{platform !== 'win32'}}",
+      "method": "shell.run",
+      "params": {
+        "message": "which ollama > /dev/null 2>&1 && echo OLLAMA_FOUND || (echo INSTALLING_OLLAMA && curl -fsSL https://ollama.com/install.sh | sh && echo OLLAMA_INSTALLED)"
+      }
+    },
+    {
+      "when": "{{platform === 'win32'}}",
+      "method": "shell.run",
+      "params": {
+        "message": "where ollama > nul 2>&1 && echo OLLAMA_FOUND || (echo INSTALLING_OLLAMA && curl -L -o OllamaSetup.exe https://ollama.com/download/OllamaSetup.exe && start /wait OllamaSetup.exe /S && echo OLLAMA_INSTALLED)"
+      }
+    },
+    {
+      "method": "log",
+      "params": {
+        "html": "<div style='font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;padding:4px 20px'><div style='display:flex;align-items:center;gap:8px;padding:8px 14px;background:#0f2d1a;border:1px solid #16a34a33;border-radius:6px'><span style='color:#22c55e;font-size:14px'>&#10003;</span><span style='color:#86efac;font-size:12px'>Ollama verificado correctamente</span></div></div>"
+      }
+    },
+
+
+
+    {
+      "method": "log",
+      "params": {
+        "html": "<div style='font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;padding:16px 20px 0'><div style='background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:16px 18px'><div style='display:flex;align-items:center;gap:10px;margin-bottom:12px'><div style='width:28px;height:28px;border-radius:50%;background:#8b5cf6;display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;font-weight:700;flex-shrink:0'>2</div><div><span style='color:#e2e8f0;font-size:14px;font-weight:600'>Iniciando servicio Ollama</span><span style='color:#64748b;font-size:12px;margin-left:8px'>Preparando motor de IA</span></div></div><div style='background:#1e293b;border-radius:6px;height:4px;overflow:hidden'><div style='width:30%;height:100%;background:linear-gradient(90deg,#8b5cf6,#a78bfa);border-radius:6px'></div></div><p style='color:#94a3b8;font-size:12px;margin:10px 0 0'>Verificando si Ollama ya est&aacute; en ejecuci&oacute;n...</p></div></div>"
+      }
+    },
+    {
+      "when": "{{platform !== 'win32'}}",
+      "method": "shell.run",
+      "params": {
+        "message": "curl -s http://127.0.0.1:11434/api/tags > /dev/null 2>&1 && echo OLLAMA_ALREADY_RUNNING || (echo STARTING_OLLAMA_SERVICE && ollama serve > /dev/null 2>&1 & sleep 5 && (curl -s http://127.0.0.1:11434/api/tags > /dev/null 2>&1 && echo OLLAMA_READY || echo OLLAMA_DEFERRED))"
+      }
+    },
+    {
+      "when": "{{platform === 'win32'}}",
+      "method": "shell.run",
+      "params": {
+        "message": "curl -s http://127.0.0.1:11434/api/tags > nul 2>&1 && echo OLLAMA_ALREADY_RUNNING || (echo STARTING_OLLAMA_SERVICE && start /B ollama serve && ping -n 6 127.0.0.1 > nul && (curl -s http://127.0.0.1:11434/api/tags > nul 2>&1 && echo OLLAMA_READY || echo OLLAMA_DEFERRED))"
+      }
+    },
+    {
+      "method": "log",
+      "params": {
+        "html": "<div style='font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;padding:4px 20px'><div style='display:flex;align-items:center;gap:8px;padding:8px 14px;background:#0f2d1a;border:1px solid #16a34a33;border-radius:6px'><span style='color:#22c55e;font-size:14px'>&#10003;</span><span style='color:#86efac;font-size:12px'>Servicio Ollama listo</span></div></div>"
+      }
+    },
+
+
+
+    {
+      "method": "log",
+      "params": {
+        "html": "<div style='font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;padding:16px 20px 0'><div style='background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:16px 18px'><div style='display:flex;align-items:center;gap:10px;margin-bottom:12px'><div style='width:28px;height:28px;border-radius:50%;background:#f59e0b;display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;font-weight:700;flex-shrink:0'>3</div><div><span style='color:#e2e8f0;font-size:14px;font-weight:600'>Descargando modelos de IA</span><span style='color:#64748b;font-size:12px;margin-left:8px'>llama3.1:8b (~4.7 GB) + {{ram < 6 ? 'llama3.2:1b (~700 MB)' : ram < 12 ? 'llama3.2:3b (~2 GB)' : 'modelo adicional'}}</span></div></div><div style='background:#1e293b;border-radius:6px;height:4px;overflow:hidden'><div style='width:45%;height:100%;background:linear-gradient(90deg,#f59e0b,#fbbf24);border-radius:6px'></div></div><p style='color:#94a3b8;font-size:12px;margin:10px 0 0'>Descargando los modelos de lenguaje necesarios. Esto puede tardar varios minutos seg&uacute;n tu conexi&oacute;n...</p></div></div>"
+      }
+    },
+    {
+      "when": "{{platform !== 'win32'}}",
+      "method": "shell.run",
+      "params": {
+        "message": "curl -s http://127.0.0.1:11434/api/tags > /dev/null 2>&1 && (ollama pull llama3.1:8b && echo MODEL_8B_DOWNLOADED && {{ram < 6 ? 'ollama pull llama3.2:1b' : ram < 12 ? 'ollama pull llama3.2:3b' : 'echo SKIP_EXTRA'}} && echo MODELS_DOWNLOADED || echo MODEL_DOWNLOAD_DEFERRED) || echo OLLAMA_NOT_RUNNING_SKIP_PULL"
+      }
+    },
+    {
+      "when": "{{platform === 'win32'}}",
+      "method": "shell.run",
+      "params": {
+        "message": "curl -s http://127.0.0.1:11434/api/tags > nul 2>&1 && (ollama pull llama3.1:8b && echo MODEL_8B_DOWNLOADED && {{ram < 6 ? 'ollama pull llama3.2:1b' : ram < 12 ? 'ollama pull llama3.2:3b' : 'echo SKIP_EXTRA'}} && echo MODELS_DOWNLOADED || echo MODEL_DOWNLOAD_DEFERRED) || echo OLLAMA_NOT_RUNNING_SKIP_PULL"
+      }
+    },
+    {
+      "method": "log",
+      "params": {
+        "html": "<div style='font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;padding:4px 20px'><div style='display:flex;align-items:center;gap:8px;padding:8px 14px;background:#0f2d1a;border:1px solid #16a34a33;border-radius:6px'><span style='color:#22c55e;font-size:14px'>&#10003;</span><span style='color:#86efac;font-size:12px'>Modelo de IA configurado</span></div></div>"
+      }
+    },
+
+
+
+    {
+      "method": "log",
+      "params": {
+        "html": "<div style='font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;padding:16px 20px 0'><div style='background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:16px 18px'><div style='display:flex;align-items:center;gap:10px;margin-bottom:12px'><div style='width:28px;height:28px;border-radius:50%;background:#06b6d4;display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;font-weight:700;flex-shrink:0'>4</div><div><span style='color:#e2e8f0;font-size:14px;font-weight:600'>Instalando dependencias Python</span><span style='color:#64748b;font-size:12px;margin-left:8px'>Entorno virtual + librer&iacute;as</span></div></div><div style='background:#1e293b;border-radius:6px;height:4px;overflow:hidden'><div style='width:65%;height:100%;background:linear-gradient(90deg,#06b6d4,#22d3ee);border-radius:6px'></div></div><p style='color:#94a3b8;font-size:12px;margin:10px 0 0'>Creando entorno virtual aislado e instalando FastAPI, Torch, Diffusers y otras dependencias. Este paso puede tardar varios minutos...</p></div></div>"
+      }
+    },
+    {
+      "when": "{{platform === 'win32'}}",
+      "method": "shell.run",
+      "params": {
+        "message": "powershell -ExecutionPolicy Bypass -File scripts/setup_venv.ps1"
+      }
+    },
+    {
+      "when": "{{platform !== 'win32'}}",
+      "method": "shell.run",
+      "params": {
+        "message": "bash scripts/setup_venv.sh"
+      }
+    },
+    {
+      "method": "log",
+      "params": {
+        "html": "<div style='font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;padding:4px 20px'><div style='display:flex;align-items:center;gap:8px;padding:8px 14px;background:#0f2d1a;border:1px solid #16a34a33;border-radius:6px'><span style='color:#22c55e;font-size:14px'>&#10003;</span><span style='color:#86efac;font-size:12px'>Entorno Python configurado correctamente</span></div></div>"
+      }
+    },
+
+
+
+    {
+      "method": "log",
+      "params": {
+        "html": "<div style='font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;padding:16px 20px 0'><div style='background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:16px 18px'><div style='display:flex;align-items:center;gap:10px;margin-bottom:12px'><div style='width:28px;height:28px;border-radius:50%;background:#ec4899;display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;font-weight:700;flex-shrink:0'>5</div><div><span style='color:#e2e8f0;font-size:14px;font-weight:600'>Inicializando datos</span><span style='color:#64748b;font-size:12px;margin-left:8px'>Estructura de archivos y agentes</span></div></div><div style='background:#1e293b;border-radius:6px;height:4px;overflow:hidden'><div style='width:85%;height:100%;background:linear-gradient(90deg,#ec4899,#f472b6);border-radius:6px'></div></div><p style='color:#94a3b8;font-size:12px;margin:10px 0 0'>Creando directorios de datos, copiando configuraci&oacute;n de agentes y prompts del sistema...</p></div></div>"
+      }
+    },
+    {
+      "when": "{{platform === 'win32'}}",
+      "method": "shell.run",
+      "params": {
+        "message": [
+          "venv\\Scripts\\python.exe -c \"import os; [os.makedirs(d, exist_ok=True) for d in ['data/agents','data/prompts/system','data/sessions','data/exports','data/brands','data/campaigns','data/audit','data/images']]; print('DIRS_OK')\"",
+          "venv\\Scripts\\python.exe -c \"import os, shutil; src='defaults/agents.json'; dst='data/agents/agents.json'; shutil.copy2(src, dst) if not os.path.exists(dst) else None; print('AGENTS_OK')\"",
+          "venv\\Scripts\\python.exe -c \"import os, shutil, glob; [shutil.copy2(f, 'data/prompts/system/') for f in glob.glob('defaults/prompts/*.md') if not os.path.exists('data/prompts/system/' + os.path.basename(f))]; print('PROMPTS_OK')\"",
+          "venv\\Scripts\\python.exe -c \"import os, shutil, glob; os.makedirs('data/prompts/skills', exist_ok=True); [shutil.copy2(f, 'data/prompts/skills/') for f in glob.glob('defaults/prompts/skills/*.md') if not os.path.exists('data/prompts/skills/' + os.path.basename(f))]; print('SKILLS_OK')\""
+        ]
+      }
+    },
+    {
+      "when": "{{platform !== 'win32'}}",
+      "method": "shell.run",
+      "params": {
+        "message": [
+          "venv/bin/python -c \"import os; [os.makedirs(d, exist_ok=True) for d in ['data/agents','data/prompts/system','data/sessions','data/exports','data/brands','data/campaigns','data/audit','data/images']]; print('DIRS_OK')\"",
+          "venv/bin/python -c \"import os, shutil; src='defaults/agents.json'; dst='data/agents/agents.json'; shutil.copy2(src, dst) if not os.path.exists(dst) else None; print('AGENTS_OK')\"",
+          "venv/bin/python -c \"import os, shutil, glob; [shutil.copy2(f, 'data/prompts/system/') for f in glob.glob('defaults/prompts/*.md') if not os.path.exists('data/prompts/system/' + os.path.basename(f))]; print('PROMPTS_OK')\"",
+          "venv/bin/python -c \"import os, shutil, glob; os.makedirs('data/prompts/skills', exist_ok=True); [shutil.copy2(f, 'data/prompts/skills/') for f in glob.glob('defaults/prompts/skills/*.md') if not os.path.exists('data/prompts/skills/' + os.path.basename(f))]; print('SKILLS_OK')\""
+        ]
+      }
+    },
+    {
+      "method": "fs.write",
+      "params": {
+        "path": "data/config.json",
+        "text": "{{JSON.stringify({version:'0.3.0',installedAt:new Date().toISOString(),platform:platform,ram:ram,default_model:'llama3.1:8b',image_provider:'auto',diffusion_model:'SimianLuo/LCM_Dreamshaper_v7',diffusion_steps:4},null,2)}}"
+      }
+    },
+    {
+      "method": "log",
+      "params": {
+        "html": "<div style='font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;padding:4px 20px'><div style='display:flex;align-items:center;gap:8px;padding:8px 14px;background:#0f2d1a;border:1px solid #16a34a33;border-radius:6px'><span style='color:#22c55e;font-size:14px'>&#10003;</span><span style='color:#86efac;font-size:12px'>Datos inicializados correctamente</span></div></div>"
+      }
+    },
+
+
+
+    {
+      "method": "log",
+      "params": {
+        "html": "<div style='font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;padding:20px'><div style='background:linear-gradient(135deg,#0f2d1a,#052e16);border:1px solid #16a34a44;border-radius:12px;padding:24px;text-align:center'><div style='background:#22c55e;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:24px;color:#fff'>&#10003;</div><h3 style='color:#22c55e;font-size:18px;margin:0 0 8px'>Instalaci&oacute;n completada</h3><p style='color:#86efac;font-size:13px;margin:0 0 16px'>SmartRedes est&aacute; listo para usar.</p><div style='background:#1e293b;border-radius:6px;height:4px;overflow:hidden;margin-bottom:16px'><div style='width:100%;height:100%;background:linear-gradient(90deg,#22c55e,#4ade80);border-radius:6px'></div></div><div style='display:flex;justify-content:center;gap:16px;flex-wrap:wrap'><div style='background:#1e293b;border-radius:8px;padding:12px 16px;min-width:120px'><div style='color:#94a3b8;font-size:11px;margin-bottom:4px'>Plataforma</div><div style='color:#e2e8f0;font-size:13px;font-weight:600'>{{platform}}</div></div><div style='background:#1e293b;border-radius:8px;padding:12px 16px;min-width:120px'><div style='color:#94a3b8;font-size:11px;margin-bottom:4px'>Modelo IA</div><div style='color:#3DAE2B;font-size:13px;font-weight:600'>{{ram < 6 ? 'llama3.2:1b' : ram < 12 ? 'llama3.2:3b' : 'llama3.1:8b'}}</div></div><div style='background:#1e293b;border-radius:8px;padding:12px 16px;min-width:120px'><div style='color:#94a3b8;font-size:11px;margin-bottom:4px'>RAM</div><div style='color:#e2e8f0;font-size:13px;font-weight:600'>{{ram}} GB</div></div></div><p style='color:#94a3b8;font-size:13px;margin:20px 0 0'>Haz click en <span style='color:#22c55e;font-weight:700'>Iniciar</span> para comenzar a usar la aplicaci&oacute;n.</p></div></div>"
+      }
+    },
+    {
+      "method": "notify",
+      "params": {
+        "html": "SmartRedes instalado correctamente. Haz click en Iniciar."
+      }
+    }
+  ]
+}

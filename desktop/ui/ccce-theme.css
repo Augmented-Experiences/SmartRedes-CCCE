@@ -1,0 +1,85 @@
+/* ============================================================
+ * CCCE Brand Kit — tema compartido para el SmartSuite
+ * (SmartCaja, SmartRedes, SmartGastos, …)
+ *
+ * Identidad de la Cámara Colombiana de Comercio Electrónico (CCCE),
+ * basada en los colores de la bandera colombiana: azul marino, dorado y rojo.
+ *
+ * Uso: enlazar en el <head> de la app y usar las variables --ccce-*.
+ *   <link rel="stylesheet" href="brand/ccce-theme.css" />
+ *
+ * Diferenciación por herramienta: sobreescribe --ccce-accent (y opcionalmente
+ * --ccce-azul) en un bloque :root posterior, por ejemplo:
+ *   :root { --ccce-accent: #F4C10E; }   (SmartRedes, mismo acento dorado que SmartCaja)
+ * ============================================================ */
+
+:root {
+  /* Paleta base CCCE */
+  --ccce-azul-oscuro: #173A7A;   /* primario / estructura / texto */
+  --ccce-azul:        #1E56A8;
+  --ccce-celeste:     #2E6FC0;
+  --ccce-rojo:        #CE1126;   /* acento fuerte (bandera) */
+  --ccce-dorado:      #F4C10E;   /* acento dominante (bandera) */
+  --ccce-verde:       #3DAE2B;   /* semántico: positivo/éxito */
+  --ccce-verde-brillante: #0DD700;
+
+  /* Color de acento por-herramienta (por defecto: dorado CCCE) */
+  --ccce-accent:      var(--ccce-dorado);
+  --ccce-accent-strong: #E0A800;
+
+  /* Neutros / superficies */
+  --bg-base:   #F7F8FA;
+  --bg-card:   #FFFFFF;
+  --bg-hover:  #EEF2F8;
+  --text-main: #1A2340;
+  --text-muted:#6B7A99;
+  --border:    #D6DFF0;
+
+  /* Semánticos */
+  --primary:   var(--ccce-azul-oscuro);
+  --primary-h: var(--ccce-azul);
+  --success:   var(--ccce-verde);
+  --warning:   #f59e0b;
+  --danger:    #dc2626;
+
+  --radius: 10px;
+  --shadow-sm: 0 1px 3px rgba(23,58,122,0.08);
+  --shadow-md: 0 4px 12px rgba(23,58,122,0.10);
+}
+
+/* Barra tricolor de marca (topbar / bajo el logo). Aplicar con la clase. */
+.ccce-tricolor-top {
+  border-top: 3px solid transparent;
+  border-image: linear-gradient(90deg,
+      var(--ccce-azul-oscuro) 0 40%,
+      var(--ccce-rojo) 40% 70%,
+      var(--ccce-accent) 70% 100%) 1;
+}
+.ccce-tricolor-bottom {
+  border-bottom: 3px solid transparent;
+  border-image: linear-gradient(90deg,
+      var(--ccce-azul-oscuro) 0 33%,
+      var(--ccce-rojo) 33% 66%,
+      var(--ccce-accent) 66% 100%) 1;
+}
+
+/* Botón primario dorado (dominante) con texto azul marino. */
+.ccce-btn-primary {
+  background: linear-gradient(135deg, var(--ccce-accent), var(--ccce-accent-strong));
+  color: var(--ccce-azul-oscuro);
+  border: 0;
+  border-bottom: 2px solid var(--ccce-azul-oscuro);
+  border-radius: var(--radius);
+  font-weight: 700;
+  cursor: pointer;
+}
+.ccce-btn-primary:hover { filter: brightness(1.05); transform: translateY(-1px); }
+
+/* Subrayado tricolor para títulos hero. */
+.ccce-underline::after {
+  content: "";
+  display: block;
+  width: 64px; height: 4px; margin: 10px auto 0;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--ccce-azul-oscuro), var(--ccce-rojo), var(--ccce-accent));
+}

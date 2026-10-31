@@ -1,0 +1,17 @@
+# Artefactos de build del backend (PyInstaller)
+backend/build/
+backend/dist/
+
+# Artefactos de Tauri / Rust
+src-tauri/target/
+src-tauri/gen/
+
+# Sidecar generado por build-backend (binario grande, se regenera)
+src-tauri/binaries/
+
+# Node
+node_modules/
+
+# Logos de splash copiados por configure.mjs
+ui/splash-logo.png
+ui/splash-mark.png

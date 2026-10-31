@@ -1,0 +1,28 @@
+{
+  "run": [
+    {
+      "method": "log",
+      "params": {
+        "html": "<div style='font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;padding:16px 20px'><div style='background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:16px 18px'><div style='display:flex;align-items:center;gap:10px;margin-bottom:10px'><div style='width:28px;height:28px;border-radius:50%;background:#ef4444;display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;font-weight:700;flex-shrink:0'>!</div><span style='color:#e2e8f0;font-size:14px;font-weight:600'>Desinstalando SmartRedes</span></div><p style='color:#94a3b8;font-size:12px;margin:0'>Eliminando entorno virtual y dependencias...</p></div></div>"
+      }
+    },
+    {
+      "method": "fs.rm",
+      "params": {
+        "path": "venv"
+      }
+    },
+    {
+      "method": "log",
+      "params": {
+        "html": "<div style='font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;padding:8px 20px'><div style='background:#1e293b;border:1px solid #334155;border-radius:10px;padding:16px;text-align:center'><div style='display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px'><span style='color:#22c55e;font-size:14px'>&#10003;</span><span style='color:#e2e8f0;font-size:14px;font-weight:600'>Desinstalaci&oacute;n completada</span></div><p style='color:#94a3b8;font-size:12px;margin:0 0 4px'>Los datos del usuario se conservan en la carpeta <span style='color:#e2e8f0;font-weight:600'>data/</span>.</p><p style='color:#64748b;font-size:11px;margin:0'>Haz click en <span style='color:#3b82f6;font-weight:600'>Instalar</span> para volver a configurar el plugin.</p></div></div>"
+      }
+    },
+    {
+      "method": "notify",
+      "params": {
+        "html": "SmartRedes desinstalado. Los datos del usuario se conservan."
+      }
+    }
+  ]
+}

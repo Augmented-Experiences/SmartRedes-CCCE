@@ -1,0 +1,23 @@
+{
+  "identifier": "default",
+  "description": "Permisos base para la ventana principal de SmartRedes.",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "core:webview:default",
+    "shell:allow-kill",
+    "shell:allow-stdin-write",
+    {
+      "identifier": "shell:allow-spawn",
+      "allow": [
+        {
+          "name": "backend",
+          "sidecar": true,
+          "args": true
+        }
+      ]
+    }
+  ]
+}

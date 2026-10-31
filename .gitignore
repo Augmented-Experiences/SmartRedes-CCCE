@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Datos de usuario (no se versionan)
+data/
+
+# Entorno
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Desktop / installer
+data-dev/
+desktop/node_modules/
+desktop/src-tauri/target/
+desktop/src-tauri/binaries/
+frontend/node_modules/

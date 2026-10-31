@@ -1,0 +1,16 @@
+{
+  "name": "smartredes-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Instalador/app de escritorio nativo de SmartRedes (Tauri) — Cámara Colombiana de Comercio Electrónico (CCCE)",
+  "scripts": {
+    "tauri": "tauri",
+    "configure": "node scripts/configure.mjs",
+    "icon": "tauri icon brand/ccce-mark.png",
+    "build": "node scripts/configure.mjs && node scripts/tauri-build.mjs",
+    "dev": "node scripts/configure.mjs && tauri dev"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.1.0"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "productName": "SmartRedes",
+  "dataDirName": "SmartRedes",
+  "ollamaTiers": [
+    {
+      "maxRamGb": 7,
+      "model": "llama3.2:1b",
+      "extraModels": [],
+      "id": "liviano",
+      "label": "Liviano"
+    },
+    {
+      "maxRamGb": 13,
+      "model": "llama3.2:3b",
+      "extraModels": [],
+      "id": "estandar",
+      "label": "Estándar"
+    },
+    {
+      "maxRamGb": 24,
+      "model": "llama3.2:3b",
+      "extraModels": [],
+      "id": "completo",
+      "label": "Completo"
+    },
+    {
+      "maxRamGb": 0,
+      "model": "llama3.1:8b",
+      "extraModels": [],
+      "id": "maximo",
+      "label": "Máximo"
+    }
+  ],
+  "extraModels": [],
+  "access": {
+    "blockBelowGb": 7,
+    "warnBelowGb": 13
+  }
+}

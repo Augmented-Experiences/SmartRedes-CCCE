@@ -1,0 +1,166 @@
+<!--
+  PLANTILLA DE SPLASH (editar aqui; no index.html — lo genera configure.mjs)
+
+  En desktop Tauri: se sirve desde FastAPI en /__splash (mismo origen que la app).
+  Tras Ollama: location.replace('/') — sin WebviewWindow.navigate ni invoke.
+  Logo splash: solo el isotipo CCCE (brand/logo-ccce-white.png). Un solo logo.
+  splash-mark ya no se usa (el segundo logo 404).
+  Marca: desktop/smartsuite.config.json (SmartRedes, accent #F4C10E).
+-->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{PRODUCT_NAME}}</title>
+  <link rel="icon" href="favicon.ico" type="image/x-icon" />
+  <link rel="stylesheet" href="ccce-theme.css" />
+  <link rel="stylesheet" href="accent.css" />
+  <style>
+    :root { --navy: var(--ccce-azul-oscuro); --gold: var(--ccce-accent); --red: var(--ccce-rojo); }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: radial-gradient(circle at 50% 30%, #1e4a94 0%, #0f2a5a 100%);
+      color: #fff; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; height: 100vh; text-align: center; gap: 20px; padding: 24px;
+    }
+    .splash-logo { height: 72px; width: auto; max-width: min(280px, 70vw); object-fit: contain; display: block; }
+    .brand { font-size: 34px; font-weight: 800; letter-spacing: 0.5px; }
+    .brand .accent { color: var(--gold); }
+    .sub { color: #c7d3ec; font-size: 14px; max-width: 460px; line-height: 1.5; }
+    .track { width: 300px; max-width: 80vw; height: 8px; border-radius: 8px; overflow: hidden; background: rgba(255,255,255,0.15); position: relative; }
+    .fill { height: 100%; width: 0%; border-radius: 8px; background: linear-gradient(90deg, var(--navy), var(--red), var(--gold)); transition: width 0.4s ease; }
+    .track.indeterminate .fill { width: 40% !important; position: absolute; left: -40%; animation: slide 1.2s infinite ease-in-out; }
+    @keyframes slide { 0% { left: -40%; } 100% { left: 100%; } }
+    .status { color: #dbe6ff; font-size: 13px; min-height: 18px; max-width: 460px; }
+    .pct { color: var(--gold); font-weight: 700; font-size: 13px; min-height: 16px; }
+    .foot { position: absolute; bottom: 18px; color: #9fb2d6; font-size: 11px; }
+  </style>
+</head>
+<body>
+  {{LOGO_HTML}}
+  <div class="brand">{{BRAND_HTML}}</div>
+  <div class="sub">{{SPLASH_SUBTITLE}}</div>
+  <div class="track indeterminate" id="track"><div class="fill" id="fill"></div></div>
+  <div class="pct" id="pct"></div>
+  <div class="status" id="status">Iniciando servicios...</div>
+  <div class="foot">{{PUBLISHER}}</div>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    const pctEl = document.getElementById('pct');
+    const fillEl = document.getElementById('fill');
+    const trackEl = document.getElementById('track');
+
+    let navigated = false;
+    const LOADING_MSG = 'Cargando la aplicación...';
+
+    const onBackendSplash =
+      location.hostname === '127.0.0.1' &&
+      (location.pathname === '/__splash' || location.pathname.startsWith('/__splash/'));
+
+    function looksTechnical(text) {
+      const t = String(text || '');
+      return /api\/health|GET \/|os error|Connection Failed|Use Entrar|backend\.exe|build-backend/i.test(t);
+    }
+
+    async function enterApp() {
+      if (navigated) return;
+      if (onBackendSplash) {
+        try {
+          const hr = await fetch('/api/health', { cache: 'no-store' });
+          if (!hr.ok) {
+            statusEl.textContent = LOADING_MSG;
+            return;
+          }
+          navigated = true;
+          statusEl.textContent = 'Abriendo la aplicación...';
+          window.location.replace('/');
+        } catch (e) {
+          statusEl.textContent = LOADING_MSG;
+        }
+        return;
+      }
+      navigated = true;
+      statusEl.textContent = 'Abriendo la aplicación...';
+      const t = window.__TAURI__;
+      if (!t || !t.core) {
+        navigated = false;
+        statusEl.textContent = LOADING_MSG;
+        return;
+      }
+      t.core.invoke('navigate_to_backend').catch(() => {
+        navigated = false;
+        statusEl.textContent = LOADING_MSG;
+      });
+    }
+
+    function render(s) {
+      if (!s) return;
+      const phase = s.phase || '';
+      if (phase === 'blocked') {
+        trackEl.classList.remove('indeterminate');
+        fillEl.style.width = '0%';
+        pctEl.textContent = '';
+        statusEl.textContent = s.message || 'Este equipo no cumple el mínimo de 8 GB de RAM.';
+        return;
+      }
+      const err = s.backendError ?? s.backend_error;
+      const can = !!(s.canContinue ?? s.can_continue);
+      const done = !!(s.ollamaDone ?? s.ollama_done);
+      const waitingForUi = done && !can;
+      const rawMsg = s.message || '';
+      if (waitingForUi || looksTechnical(rawMsg) || looksTechnical(err)) {
+        statusEl.textContent = LOADING_MSG;
+      } else if (rawMsg) {
+        statusEl.textContent = rawMsg;
+      }
+      if (waitingForUi || typeof s.percent !== 'number' || s.percent < 0) {
+        trackEl.classList.add('indeterminate');
+        pctEl.textContent = '';
+      } else {
+        trackEl.classList.remove('indeterminate');
+        fillEl.style.width = s.percent + '%';
+        pctEl.textContent = s.percent + '%';
+      }
+      if (done && can && !navigated) enterApp();
+    }
+
+    function pollHttpStatus() {
+      if (navigated) return;
+      fetch('/api/desktop-status', { cache: 'no-store' })
+        .then((r) => r.json())
+        .then(render)
+        .catch(() => {});
+    }
+
+    function pollTauriStatus() {
+      const t = window.__TAURI__;
+      if (!t || !t.core || navigated) return;
+      t.core.invoke('current_status').then(render).catch(() => {});
+    }
+
+    if (onBackendSplash) {
+      pollHttpStatus();
+      setInterval(pollHttpStatus, 400);
+    } else {
+      function initTauri() {
+        const t = window.__TAURI__;
+        if (!t || !t.event || !t.core) return false;
+        pollTauriStatus();
+        t.event.listen('status', (e) => render(e.payload));
+        setInterval(pollTauriStatus, 2000);
+        return true;
+      }
+      if (!initTauri()) {
+        let tries = 0;
+        const iv = setInterval(() => {
+          if (initTauri() || ++tries > 50) clearInterval(iv);
+        }, 100);
+      }
+    }
+  </script>
+</body>
+</html>

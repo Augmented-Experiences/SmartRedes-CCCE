@@ -1,0 +1,32 @@
+{
+  "run": [
+    {
+      "method": "log",
+      "params": {
+        "html": "<div style='font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;padding:16px 20px'><div style='display:flex;align-items:center;gap:8px;padding:10px 14px;background:#0f172a;border:1px solid #1e293b;border-radius:6px'><div style='width:8px;height:8px;border-radius:50%;background:#f59e0b;flex-shrink:0'></div><span style='color:#94a3b8;font-size:12px'>Deteniendo SmartRedes...</span></div></div>"
+      }
+    },
+    {
+      "when": "{{platform !== 'win32'}}",
+      "method": "shell.run",
+      "params": {
+        "message": "pkill -f 'python server/app.py' 2>/dev/null; pkill -f 'python3 server/app.py' 2>/dev/null; echo 'Servidor detenido'",
+        "path": "{{cwd}}"
+      }
+    },
+    {
+      "when": "{{platform === 'win32'}}",
+      "method": "shell.run",
+      "params": {
+        "message": "wmic process where \"commandline like '%%server/app.py%%' and name='python.exe'\" call terminate 2>nul & wmic process where \"commandline like '%%server\\\\app.py%%' and name='python.exe'\" call terminate 2>nul & echo Servidor detenido",
+        "path": "{{cwd}}"
+      }
+    },
+    {
+      "method": "log",
+      "params": {
+        "html": "<div style='font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;padding:8px 20px'><div style='background:#1e293b;border:1px solid #334155;border-radius:10px;padding:16px;text-align:center'><div style='display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:6px'><div style='width:10px;height:10px;border-radius:50%;background:#64748b'></div><span style='color:#e2e8f0;font-size:14px;font-weight:600'>Aplicaci&oacute;n detenida</span></div><p style='color:#94a3b8;font-size:12px;margin:0'>Haz click en <span style='color:#3DAE2B;font-weight:600'>Iniciar</span> para volver a ejecutar.</p></div></div>"
+      }
+    }
+  ]
+}
