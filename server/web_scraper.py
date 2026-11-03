@@ -52,35 +52,9 @@ _JINA_BASE = "https://r.jina.ai/"
 
 
 def _validate_redirect_target(response: requests.Response) -> None:
-    """Valida que la URL final tras redirecciones no apunte a una IP privada/local (anti-SSRF)."""
-    import ipaddress
-    import socket
-    final_url = response.url
-    parsed = urlparse(final_url)
-    hostname = parsed.hostname
-    if not hostname:
-        return
-    blocked_hosts = {"localhost", "localhost.localdomain", "0.0.0.0", "[::]"}
-    if hostname.lower() in blocked_hosts:
-        raise ValueError(f"Redirección a host local bloqueada: {hostname}")
-    try:
-        resolved_ips = socket.getaddrinfo(hostname, None)
-        blocked_networks = [
-            ipaddress.ip_network("127.0.0.0/8"),
-            ipaddress.ip_network("10.0.0.0/8"),
-            ipaddress.ip_network("172.16.0.0/12"),
-            ipaddress.ip_network("192.168.0.0/16"),
-            ipaddress.ip_network("169.254.0.0/16"),
-            ipaddress.ip_network("0.0.0.0/8"),
-            ipaddress.ip_network("::1/128"),
-        ]
-        for family, _, _, _, sockaddr in resolved_ips:
-            ip_obj = ipaddress.ip_address(sockaddr[0])
-            for network in blocked_networks:
-                if ip_obj in network:
-                    raise ValueError(f"Redirección a IP privada bloqueada: {sockaddr[0]}")
-    except socket.gaierror:
-        pass  # No se puede resolver, dejar pasar (el request fallará de todas formas)
+    """Valida que la URL final no sea privada, loopback ni metadata."""
+    from ssrf_guard import assert_public_http_url
+    assert_public_http_url(response.url)
 
 
 # ---------------------------------------------------------------------------
@@ -189,8 +163,8 @@ def _scrape_static(url: str, result: ScrapeResult) -> bool:
     try:
         from bs4 import BeautifulSoup
 
-        resp = requests.get(url, headers=_DEFAULT_HEADERS, timeout=20, allow_redirects=True)
-        _validate_redirect_target(resp)  # Anti-SSRF: validar destino final
+        from ssrf_guard import HTML_CONTENT_TYPES, safe_fetch
+        resp = safe_fetch(url, headers=_DEFAULT_HEADERS, allowed_types=HTML_CONTENT_TYPES)
         resp.raise_for_status()
         resp.encoding = resp.apparent_encoding or "utf-8"
         html = resp.text
@@ -259,14 +233,16 @@ def _scrape_jina(url: str, result: ScrapeResult) -> bool:
     No requiere instalación adicional, solo conexión a internet.
     """
     try:
+        from ssrf_guard import HTML_CONTENT_TYPES, assert_public_http_url, safe_fetch
+        assert_public_http_url(url)
         jina_url = f"{_JINA_BASE}{url}"
         headers = {
             "User-Agent": _DEFAULT_UA,
             "Accept": "text/plain, text/markdown, */*",
             "X-Return-Format": "markdown",
-            "X-Timeout": "20",
+            "X-Timeout": "12",
         }
-        resp = requests.get(jina_url, headers=headers, timeout=30)
+        resp = safe_fetch(jina_url, headers=headers, allowed_types=HTML_CONTENT_TYPES)
         if resp.status_code != 200:
             return False
 
@@ -394,6 +370,18 @@ def _scrape_playwright_sync(url: str, result: ScrapeResult) -> bool:
                 },
             )
             page = context.new_page()
+            from ssrf_guard import SsrfBlocked, assert_public_http_url
+            assert_public_http_url(url)
+
+            def _reject_private(route):
+                try:
+                    assert_public_http_url(route.request.url)
+                except SsrfBlocked:
+                    route.abort()
+                    return
+                route.fallback()
+
+            page.route("**/*", _reject_private)
 
             # Bloquear recursos pesados que no aportan contenido
             page.route("**/*.{png,jpg,jpeg,gif,webp,svg,ico,woff,woff2,ttf,eot,mp4,mp3,pdf}", 
@@ -644,8 +632,8 @@ def _scrape_meta_enriched(url: str, result: ScrapeResult) -> bool:
     try:
         from bs4 import BeautifulSoup
 
-        resp = requests.get(url, headers=_DEFAULT_HEADERS, timeout=20, allow_redirects=True)
-        _validate_redirect_target(resp)  # Anti-SSRF: validar destino final
+        from ssrf_guard import HTML_CONTENT_TYPES, safe_fetch
+        resp = safe_fetch(url, headers=_DEFAULT_HEADERS, allowed_types=HTML_CONTENT_TYPES)
         resp.encoding = resp.apparent_encoding or "utf-8"
         html = resp.text
         soup = BeautifulSoup(html, "html.parser")
@@ -667,10 +655,20 @@ def _scrape_meta_enriched(url: str, result: ScrapeResult) -> bool:
         if result.og_image:
             screenshot_candidates.insert(0, result.og_image)
 
+        image_types = {
+            "image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif", "image/svg+xml",
+        }
         for sc_url in screenshot_candidates[:3]:
             try:
-                head = requests.head(sc_url, headers=_DEFAULT_HEADERS, timeout=5, allow_redirects=True)
-                if head.status_code == 200 and "image" in head.headers.get("content-type", ""):
+                head = safe_fetch(
+                    sc_url,
+                    headers=_DEFAULT_HEADERS,
+                    timeout=5,
+                    max_bytes=1024,
+                    allowed_types=image_types,
+                    method="HEAD",
+                )
+                if head.status_code == 200:
                     result.screenshot_url = sc_url
                     break
             except Exception:

@@ -229,7 +229,7 @@ tauri-plugin-shell = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sysinfo = "0.33"
-ureq = { version = "2", default-features = false, features = ["native-tls"] }
+ureq = { version = "2", default-features = false, features = ["tls", "native-tls"] }
 zip = "0.6"
 flate2 = "1"
 tar = "0.4"

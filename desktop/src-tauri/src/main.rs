@@ -1485,7 +1485,9 @@ fn ensure_ollama_api(app: &tauri::AppHandle) -> bool {
         return true;
     }
 
-    if let Some(bin) = find_portable_ollama(&ollama_runtime_dir()) {
+    let portable = find_portable_ollama(&ollama_runtime_dir())
+        .or_else(|| find_portable_ollama(&ollama_install_dir()));
+    if let Some(bin) = portable {
         ensure_unix_executable(&bin);
         if binary_runs(&bin) {
             ollama_log(&format!("Arrancando Ollama portable existente: {}", bin.display()));
@@ -1495,6 +1497,15 @@ fn ensure_ollama_api(app: &tauri::AppHandle) -> bool {
                 "Iniciando Ollama portable...",
             );
         }
+        ollama_log(&format!(
+            "Ollama portable encontrado pero no ejecuta: {}",
+            bin.display()
+        ));
+    } else {
+        ollama_log(&format!(
+            "Sin Ollama portable en {}",
+            ollama_runtime_dir().display()
+        ));
     }
 
     if system_ollama_available() {

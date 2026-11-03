@@ -220,6 +220,14 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger("smartredes")
+from log_safety import install_log_sanitizer
+install_log_sanitizer(logger)
+
+# Topes para listados que no deben crecer sin control (CWE-606).
+MAX_IMAGES_LIST = 500
+MAX_CAMPAIGN_SCAN = 2000
+MAX_CAMPAIGN_DAYS = 366
+MAX_CAMPAIGN_CHANNELS = 8
 
 # Agregar RotatingFileHandler para evitar crecimiento ilimitado de logs
 try:
@@ -993,78 +1001,22 @@ class AgentConfigUpdate(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Seguridad: validación anti-SSRF de URLs
-# Bloquea esquemas peligrosos y rangos de IP locales/privados.
+# Seguridad: validación anti-SSRF de URLs (módulo ssrf_guard)
 # ---------------------------------------------------------------------------
-import ipaddress
 from urllib.parse import urlparse
 
-_BLOCKED_IP_NETWORKS = [
-    ipaddress.ip_network("127.0.0.0/8"),      # Loopback
-    ipaddress.ip_network("10.0.0.0/8"),       # Privada clase A
-    ipaddress.ip_network("172.16.0.0/12"),    # Privada clase B
-    ipaddress.ip_network("192.168.0.0/16"),   # Privada clase C
-    ipaddress.ip_network("169.254.0.0/16"),   # Link-local / metadatos cloud
-    ipaddress.ip_network("0.0.0.0/8"),        # Red actual
-    ipaddress.ip_network("::1/128"),           # Loopback IPv6
-    ipaddress.ip_network("fc00::/7"),          # Privada IPv6
-    ipaddress.ip_network("fe80::/10"),         # Link-local IPv6
-]
 
 def validate_url_safe(url: str) -> str:
     """Valida que una URL sea segura para hacer requests (anti-SSRF).
-    
-    Reglas:
-      - Solo esquemas http y https permitidos
-      - No se permiten IPs locales/privadas ni metadatos cloud
-      - No se permite el esquema file://
-      - El hostname debe existir y ser resolvible
-    
-    Retorna la URL limpia si es válida, lanza HTTPException si no.
+
+    Solo http/https. Rechaza privadas, loopback, link-local, reservadas
+    y metadata. SMARTREDES_ALLOW_PRIVATE_URLS=1 permite redes privadas.
     """
-    import socket
-    
-    parsed = urlparse(url.strip())
-    
-    # 1. Solo http/https
-    if parsed.scheme not in ("http", "https"):
-        raise HTTPException(
-            status_code=400,
-            detail=f"Esquema de URL no permitido: '{parsed.scheme}'. Solo http y https."
-        )
-    
-    # 2. Hostname requerido
-    hostname = parsed.hostname
-    if not hostname:
-        raise HTTPException(status_code=400, detail="URL inválida: no tiene hostname.")
-    
-    # 3. Bloquear hostnames locales conocidos
-    blocked_hosts = {"localhost", "localhost.localdomain", "0.0.0.0", "[::]"}
-    if hostname.lower() in blocked_hosts:
-        raise HTTPException(
-            status_code=400,
-            detail="No se permite analizar URLs locales (localhost)."
-        )
-    
-    # 4. Resolver hostname y verificar que no apunte a IP privada/local
+    from ssrf_guard import SsrfBlocked, assert_public_http_url
     try:
-        resolved_ips = socket.getaddrinfo(hostname, None)
-        for family, _, _, _, sockaddr in resolved_ips:
-            ip_str = sockaddr[0]
-            ip_obj = ipaddress.ip_address(ip_str)
-            for network in _BLOCKED_IP_NETWORKS:
-                if ip_obj in network:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"URL bloqueada: '{hostname}' resuelve a IP privada/local ({ip_str})."
-                    )
-    except socket.gaierror:
-        raise HTTPException(
-            status_code=400,
-            detail=f"No se pudo resolver el hostname: '{hostname}'."
-        )
-    
-    return url.strip()
+        return assert_public_http_url(url)
+    except SsrfBlocked as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 class WebsiteAnalyzeRequest(BaseModel):
@@ -1947,7 +1899,8 @@ def _scrape_website_fallback(url: str) -> str:
     try:
         from bs4 import BeautifulSoup
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-        resp = requests.get(url, headers=headers, timeout=20, allow_redirects=True)
+        from ssrf_guard import HTML_CONTENT_TYPES, safe_fetch
+        resp = safe_fetch(url, headers=headers, allowed_types=HTML_CONTENT_TYPES)
         resp.raise_for_status()
         resp.encoding = resp.apparent_encoding or "utf-8"
         soup = BeautifulSoup(resp.content, "html.parser", from_encoding="utf-8")
@@ -2078,7 +2031,10 @@ def _parse_adn_from_llm(llm_output: str, url: str) -> dict:
             pass
 
     # Fallback: estructura básica con el texto crudo para que el usuario pueda ver qué devolvió el LLM
-    logger.warning(f"[ADN Parser] No se pudo parsear JSON del LLM. Output: {llm_output[:200]}")
+    logger.warning(
+        "[ADN Parser] No se pudo parsear JSON del LLM. Output length=%s",
+        len(llm_output or ""),
+    )
     return {
         "value_proposition": "",
         "sector": "",
@@ -2706,10 +2662,27 @@ REGLAS:
 @app.get("/api/brands/{brand_id}/campaigns")
 def list_campaigns(brand_id: str):
     """Lista todas las campañas de una marca."""
+    from path_safety import PathRejected, safe_child_name
+    try:
+        safe_brand = safe_child_name(brand_id)
+    except PathRejected as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     campaigns_dir = DATA_DIR / "campaigns"
     campaigns = []
-    for camp_file in campaigns_dir.glob(f"{brand_id}_*/campaign.json"):
-        camp = load_json(camp_file)
+    if not campaigns_dir.exists():
+        return {"campaigns": campaigns}
+
+    # No interpolar brand_id en el glob: filtrar por prefijo saneado y tope fijo.
+    prefix = f"{safe_brand}_"
+    scanned = 0
+    for camp_dir in campaigns_dir.iterdir():
+        if scanned >= MAX_CAMPAIGN_SCAN:
+            break
+        if not camp_dir.is_dir() or not camp_dir.name.startswith(prefix):
+            continue
+        scanned += 1
+        camp = load_json(camp_dir / "campaign.json")
         if camp:
             campaigns.append(camp)
     campaigns.sort(key=lambda c: c.get("created_at", ""), reverse=True)
@@ -2763,14 +2736,25 @@ async def create_campaign(brand_id: str, campaign: CampaignCreate,
             raise HTTPException(status_code=400,
                                 detail="La fecha de inicio debe ser anterior a la fecha de fin")
         diff_days = (end_dt - start_dt).days
-        if diff_days > 30:
-            raise HTTPException(status_code=400,
-                                detail=f"La campa\u00f1a no puede exceder 30 d\u00edas (solicitados: {diff_days}). M\u00e1ximo 2 semanas recomendadas.")
+        if diff_days > MAX_CAMPAIGN_DAYS:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"La campaña no puede exceder {MAX_CAMPAIGN_DAYS} días "
+                    f"(solicitados: {diff_days})."
+                ),
+            )
         if start_dt < date_type.today():
             raise HTTPException(status_code=400,
                                 detail="La fecha de inicio debe ser una fecha futura")
     except ValueError:
         raise HTTPException(status_code=400, detail="Formato de fecha inv\u00e1lido. Use YYYY-MM-DD")
+
+    if not campaign.channels or len(campaign.channels) > MAX_CAMPAIGN_CHANNELS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Seleccione entre 1 y {MAX_CAMPAIGN_CHANNELS} canales.",
+        )
 
     # Verificar que existe ADN
     adn = load_json(DATA_DIR / "brands" / brand_id / "adn.json") or \
@@ -2779,13 +2763,19 @@ async def create_campaign(brand_id: str, campaign: CampaignCreate,
         raise HTTPException(status_code=400,
                             detail="La marca necesita un ADN antes de crear campa\u00f1as")
 
+    from path_safety import PathRejected, safe_child_name
+    try:
+        safe_brand = safe_child_name(brand_id)
+    except PathRejected as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     campaign_id = str(uuid.uuid4())
-    campaign_dir = DATA_DIR / "campaigns" / f"{brand_id}_{campaign_id}"
+    campaign_dir = DATA_DIR / "campaigns" / f"{safe_brand}_{campaign_id}"
     campaign_dir.mkdir(parents=True, exist_ok=True)
 
     campaign_data = {
         "id": campaign_id,
-        "brand_id": brand_id,
+        "brand_id": safe_brand,
         "brand_name": brand.get("name"),
         "adn_version": campaign.adn_version or adn.get("version", "draft"),
         "name": campaign.name,
@@ -2795,7 +2785,7 @@ async def create_campaign(brand_id: str, campaign: CampaignCreate,
         "target_audience": campaign.target_audience,
         "start_date": campaign.start_date,
         "end_date": campaign.end_date,
-        "channels": campaign.channels,
+        "channels": campaign.channels[:MAX_CAMPAIGN_CHANNELS],
         "frequency": campaign.frequency,
         "channel_distribution": campaign.channel_distribution,
         "restrictions": campaign.restrictions,
@@ -4111,21 +4101,23 @@ async def generate_publication_image(campaign_id: str, pub_id: str, req: Generat
 
         # Determinar extensión según el método
         ext = "svg" if generation_method == "placeholder_svg" else "png"
+        from path_safety import PathRejected, confined_file
         img_filename = f"{pub_id}_{ts}.{ext}"
-        img_path = img_dir / img_filename
+        try:
+            img_path = confined_file(img_dir, img_filename, image=True)
+            fixed_path = confined_file(img_dir, f"{pub_id}.{ext}", image=True)
+        except PathRejected as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
         if generation_method == "placeholder_svg":
             # El SVG ya es texto, no base64
             svg_content = base64.b64decode(image_b64).decode("utf-8")
             img_path.write_text(svg_content, encoding="utf-8")
-            # Guardar también como .png (alias) para compatibilidad
-            fixed_path = img_dir / f"{pub_id}.svg"
             fixed_path.write_text(svg_content, encoding="utf-8")
             img_bytes_len = len(svg_content.encode("utf-8"))
         else:
             img_bytes = base64.b64decode(image_b64, validate=False)
             img_path.write_bytes(img_bytes)
-            fixed_path = img_dir / f"{pub_id}.png"
             fixed_path.write_bytes(img_bytes)
             img_bytes_len = len(img_bytes)
 
@@ -4184,41 +4176,28 @@ async def generate_publication_image(campaign_id: str, pub_id: str, req: Generat
 def serve_generated_image(filename: str):
     """Sirve imágenes generadas por IA con headers anti-caché.
     Soporta .png (imagen real) y .svg (placeholder cuando Ollama no soporta imágenes).
-    
-    Seguridad: sanitiza filename para prevenir Path Traversal (../../../etc/passwd).
-    """
-    # Soportar filename con query string (ej: pub_id.png?t=123)
-    raw_filename = filename.split("?")[0]
-    
-    # SEGURIDAD: extraer solo el nombre base del archivo, eliminando cualquier
-    # secuencia de directorio (../, ..\\ , rutas absolutas, etc.)
-    clean_filename = Path(raw_filename).name
-    
-    # Validar que el filename no esté vacío y tenga extensión válida
-    if not clean_filename or clean_filename.startswith("."):
-        raise HTTPException(status_code=400, detail="Nombre de archivo inválido.")
-    
-    allowed_extensions = {".png", ".svg", ".jpg", ".jpeg", ".webp"}
-    if not any(clean_filename.lower().endswith(ext) for ext in allowed_extensions):
-        raise HTTPException(status_code=400, detail="Extensión de archivo no permitida.")
-    
-    img_dir = DATA_DIR / "exports" / "images"
 
-    # Buscar el archivo exacto primero
-    img_path = img_dir / clean_filename
-    
-    # SEGURIDAD: verificar que la ruta resuelta está dentro de img_dir
+    Seguridad: basename + confined_file (path_safety) contra Path Traversal.
+    """
+    raw_filename = filename.split("?")[0]
+    from path_safety import PathRejected, confined_file
+    img_dir = DATA_DIR / "exports" / "images"
+    img_dir.mkdir(parents=True, exist_ok=True)
     try:
-        img_path.resolve().relative_to(img_dir.resolve())
-    except ValueError:
-        logger.warning(f"Intento de path traversal bloqueado: {filename}")
-        raise HTTPException(status_code=400, detail="Ruta de archivo no permitida.")
-    
+        img_path = confined_file(img_dir, raw_filename, image=True)
+    except PathRejected as exc:
+        logger.warning("Intento de path traversal bloqueado")
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    clean_filename = img_path.name
+
     if not img_path.exists():
         # Si pidieron .png pero solo existe .svg (placeholder), servir el SVG
         if clean_filename.endswith(".png"):
-            svg_path = img_dir / clean_filename.replace(".png", ".svg")
-            if svg_path.exists():
+            try:
+                svg_path = confined_file(img_dir, clean_filename[:-4] + ".svg", image=True)
+            except PathRejected:
+                svg_path = None
+            if svg_path is not None and svg_path.exists() and not svg_path.is_symlink():
                 img_path = svg_path
                 clean_filename = svg_path.name
             else:
@@ -4245,7 +4224,14 @@ def list_generated_images():
     """Lista todas las imágenes generadas (para debug)."""
     img_dir = DATA_DIR / "exports" / "images"
     if not img_dir.exists():
-        return {"images": []}
+        return {"images": [], "count": 0}
+    files = []
+    for idx, f in enumerate(img_dir.glob("*.png")):
+        if idx >= MAX_IMAGES_LIST:
+            break
+        if f.is_file() and not f.is_symlink():
+            files.append(f)
+    files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
     images = [
         {
             "filename": f.name,
@@ -4253,7 +4239,7 @@ def list_generated_images():
             "size_kb": round(f.stat().st_size / 1024, 1),
             "created_at": datetime.fromtimestamp(f.stat().st_mtime).isoformat(),
         }
-        for f in sorted(img_dir.glob("*.png"), key=lambda x: x.stat().st_mtime, reverse=True)
+        for f in files
     ]
     return {"images": images, "count": len(images)}
 
@@ -4450,12 +4436,14 @@ async def upload_publication_image(
     img_dir = DATA_DIR / "exports" / "images"
     img_dir.mkdir(parents=True, exist_ok=True)
     ts = int(time.time())
+    from path_safety import PathRejected, confined_file
     img_filename = f"{pub_id}_{ts}.{ext}"
-    img_path = img_dir / img_filename
+    try:
+        img_path = confined_file(img_dir, img_filename, image=True)
+        fixed_path = confined_file(img_dir, f"{pub_id}.{ext}", image=True)
+    except PathRejected as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     img_path.write_bytes(content)
-
-    # Guardar también como nombre fijo
-    fixed_path = img_dir / f"{pub_id}.{ext}"
     fixed_path.write_bytes(content)
 
     # Actualizar publicación
@@ -4580,9 +4568,13 @@ def get_stats():
 
     campaigns_root = DATA_DIR / "campaigns"
     if campaigns_root.exists():
+        scanned = 0
         for camp_dir in sorted(campaigns_root.iterdir(), key=lambda d: d.stat().st_mtime, reverse=True):
+            if scanned >= MAX_CAMPAIGN_SCAN:
+                break
             if not camp_dir.is_dir():
                 continue
+            scanned += 1
             camp_file = camp_dir / "campaign.json"
             plan_file = camp_dir / "plan.json"
             if not camp_file.exists():
@@ -4787,12 +4779,109 @@ def get_reasoning_log(agent_id: Optional[str] = None, limit: int = 50):
 
 
 # ---------------------------------------------------------------------------
-# Servir la UI
+# Splash same-origin (Tauri) + UI estática
 # ---------------------------------------------------------------------------
-if APP_DIR.exists():
+def _resolve_splash_dir() -> Path:
+    """Archivos splash (desktop/ui) empaquetados como splash_ui en PyInstaller."""
+    candidates: list[Path] = []
+    if _IS_FROZEN:
+        meipass = Path(getattr(sys, "_MEIPASS", str(BASE_DIR)))
+        candidates.append(meipass / "splash_ui")
+    candidates.extend(
+        [
+            BASE_DIR / "desktop" / "ui",
+            Path(__file__).resolve().parent.parent / "desktop" / "ui",
+        ]
+    )
+    for c in candidates:
+        if (c / "index.html").is_file():
+            return c.resolve()
+    return (BASE_DIR / "desktop" / "ui").resolve()
+
+
+_SPLASH_DIR = _resolve_splash_dir()
+_SPLASH_INDEX = _SPLASH_DIR / "index.html"
+_DESKTOP_STATUS_FILE = DATA_DIR / "desktop_status.json"
+_INDEX_HTML = APP_DIR / "index.html"
+logger.info(
+    "UI splash: dir=%s index=%s app_index=%s frozen=%s",
+    _SPLASH_DIR,
+    _SPLASH_INDEX.is_file(),
+    _INDEX_HTML.is_file(),
+    _IS_FROZEN,
+)
+
+
+@app.get("/api/desktop-status")
+async def desktop_status():
+    """Estado del arranque (Ollama) escrito por Tauri en desktop_status.json."""
+    default = {
+        "phase": "starting",
+        "message": "Iniciando servicios...",
+        "percent": -1,
+        "backendUrl": None,
+        "canContinue": False,
+        "ollamaDone": False,
+        "backendError": None,
+    }
+    if not _DESKTOP_STATUS_FILE.is_file():
+        return default
+    try:
+        raw = _DESKTOP_STATUS_FILE.read_text(encoding="utf-8")
+        data = json.loads(raw)
+        if isinstance(data, dict):
+            return {**default, **data}
+    except Exception as exc:
+        logger.warning("desktop_status.json: %s", exc)
+    return default
+
+
+@app.post("/api/desktop-retry")
+async def desktop_retry():
+    """El splash pide a Tauri que reintente la descarga de Ollama."""
+    flag = DATA_DIR / "retry_ollama.flag"
+    try:
+        flag.write_text("1", encoding="utf-8")
+        return {"ok": True}
+    except Exception as exc:
+        logger.warning("retry_ollama.flag: %s", exc)
+        raise HTTPException(status_code=500, detail="No se pudo pedir el reintento")
+
+
+@app.get("/api/desktop-ui")
+async def desktop_ui_status():
+    """Diagnóstico para el instalador Tauri (UI empaquetada en el sidecar)."""
+    return {
+        "frozen": _IS_FROZEN,
+        "baseDir": str(BASE_DIR),
+        "appDir": str(APP_DIR),
+        "indexExists": _INDEX_HTML.is_file(),
+        "splashExists": _SPLASH_INDEX.is_file(),
+        "port": PORT,
+    }
+
+
+if _SPLASH_INDEX.is_file():
+    app.mount(
+        "/__splash",
+        StaticFiles(directory=str(_SPLASH_DIR), html=True),
+        name="splash",
+    )
+else:
+    logger.warning("splash index.html no encontrado en %s", _SPLASH_DIR)
+
+    @app.get("/__splash")
+    @app.get("/__splash/")
+    async def splash_missing():
+        from fastapi.responses import RedirectResponse
+
+        return RedirectResponse(url="/ui/index.html")
+
+
+if APP_DIR.exists() and _INDEX_HTML.is_file():
     app.mount("/ui", StaticFiles(directory=str(APP_DIR), html=True), name="ui")
 else:
-    logger.warning(f"Directorio UI no encontrado en {APP_DIR}")
+    logger.warning("Directorio UI o index.html no encontrado en %s", APP_DIR)
 
 
 @app.get("/")
